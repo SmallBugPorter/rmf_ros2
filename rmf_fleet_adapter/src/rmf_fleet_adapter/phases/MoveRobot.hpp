@@ -25,6 +25,8 @@
 
 #include <rmf_traffic/Motion.hpp>
 
+#include <algorithm>
+
 namespace rmf_fleet_adapter {
 namespace phases {
 
@@ -257,7 +259,9 @@ void MoveRobot::Action::operator()(const Subscriber& s)
         const rmf_traffic::Time now = action->_context->now();
         const auto planned_time = target_wp.time();
         const auto newly_expected_arrival = now + estimate;
-        const auto new_cumulative_delay = newly_expected_arrival - planned_time;
+        const auto new_cumulative_delay = std::max(
+          rmf_traffic::Duration(0),
+          newly_expected_arrival - planned_time);
 
         action->_context->worker().schedule(
           [
@@ -353,7 +357,9 @@ void MoveRobot::Action::operator()(const Subscriber& s)
             }
 
             const auto now = self->_context->now();
-            const auto cumulative_delay = now - self->_waypoints.back().time();
+            const auto cumulative_delay = std::max(
+              rmf_traffic::Duration(0),
+              now - self->_waypoints.back().time());
             self->_context->itinerary().cumulative_delay(
               self->_plan_id, cumulative_delay, std::chrono::seconds(1));
           }

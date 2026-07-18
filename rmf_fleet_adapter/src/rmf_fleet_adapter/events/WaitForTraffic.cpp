@@ -263,10 +263,28 @@ void WaitForTraffic::Active::_consider_going()
   }
 
   bool all_dependencies_reached = true;
+  bool any_dependency_deprecated = false;
   for (const auto& dep : _dependencies)
   {
+    if (dep.deprecated() && !dep.reached())
+      any_dependency_deprecated = true;
+
     if (!dep.reached() && !dep.deprecated())
       all_dependencies_reached = false;
+  }
+
+  if (any_dependency_deprecated)
+  {
+    _state->update_status(Status::Delayed);
+    _state->update_log().info(
+      "Replanning because a traffic dependency was superseded before "
+      "being reached");
+    RCLCPP_INFO(
+      _context->node()->get_logger(),
+      "Replanning for [%s] because a traffic dependency was deprecated "
+      "before being reached",
+      _context->requester_id().c_str());
+    return _replan();
   }
 
   if (all_dependencies_reached)
