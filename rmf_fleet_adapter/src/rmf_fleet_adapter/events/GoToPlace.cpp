@@ -664,6 +664,30 @@ void GoToPlace::Active::_execute_plan(
 
   const auto& graph = _context->navigation_graph();
 
+  // ---- 打印规划路径的所有顶点 ----
+  {
+    const auto& waypoints = plan.get_waypoints();
+    const auto t0 = waypoints.empty() ?
+      rmf_traffic::Time(rmf_traffic::Duration(0)) : waypoints.front().time();
+    RCLCPP_INFO(
+      _context->node()->get_logger(),
+      "=== Planned path for [%s] (%lu waypoints) ===",
+      _context->requester_id().c_str(),
+      waypoints.size());
+    for (std::size_t i = 0; i < waypoints.size(); ++i)
+    {
+      RCLCPP_INFO(
+        _context->node()->get_logger(),
+        "  [%lu] %s",
+        i,
+        agv::print_plan_waypoint(waypoints[i], graph, t0).c_str());
+    }
+    RCLCPP_INFO(
+      _context->node()->get_logger(),
+      "=== End path for [%s] ===",
+      _context->requester_id().c_str());
+  }
+
   RCLCPP_INFO(
     _context->node()->get_logger(),
     "Executing go_to_place [%s] for robot [%s]",
