@@ -140,8 +140,8 @@ inline std::string print_plan_waypoint(
   ss << "t=" << rmf_traffic::time::to_seconds(wp.time() - t0);
   if (wp.graph_index().has_value())
     ss << " #" << *wp.graph_index();
-  ss << " <" << wp.position().transpose()
-     << "> yaw=" << wp.position()[2] * 180.0 / M_PI;
+  if (wp.graph_index().has_value())
+    ss << " [" << graph.get_waypoint(*wp.graph_index()).name_or_index() << "]";
   if (wp.event())
   {
     EventPrinter event;

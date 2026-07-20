@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #ifndef SRC__RMF_FLEET_ADAPTER__PHASES__MOVEROBOT_HPP
 #define SRC__RMF_FLEET_ADAPTER__PHASES__MOVEROBOT_HPP
@@ -27,122 +27,119 @@
 
 #include <algorithm>
 
-namespace rmf_fleet_adapter {
-namespace phases {
-
-namespace {
-//==============================================================================
-inline std::string destination(
-  const rmf_traffic::agv::Plan::Waypoint& wp,
-  const rmf_traffic::agv::Graph& graph)
+namespace rmf_fleet_adapter
 {
-  if (wp.graph_index().has_value())
-    return rmf_task::standard_waypoint_name(graph, *wp.graph_index());
-
-  std::ostringstream oss;
-  oss << "(" << wp.position().block<2, 1>(0, 0).transpose() << ")";
-  return oss.str();
-}
-} // anonymous namespace
-
-struct MoveRobot
-{
-  class Action;
-
-  class ActivePhase : public LegacyTask::ActivePhase
-  {
-  public:
-
-    ActivePhase(
-      agv::RobotContextPtr context,
-      std::vector<rmf_traffic::agv::Plan::Waypoint> waypoints,
-      rmf_traffic::PlanId plan_id,
-      std::optional<rmf_traffic::Duration> tail_period);
-
-    const rxcpp::observable<LegacyTask::StatusMsg>& observe() const override;
-
-    rmf_traffic::Duration estimate_remaining_time() const override;
-
-    void emergency_alarm(bool on) override;
-
-    void cancel() override;
-
-    const std::string& description() const override;
-
-  private:
-
-    agv::RobotContextPtr _context;
-    std::string _description;
-    std::shared_ptr<Action> _action;
-    rxcpp::observable<LegacyTask::StatusMsg> _obs;
-    rxcpp::subjects::subject<bool> _cancel_subject;
-    std::optional<rmf_traffic::Duration> _tail_period;
-  };
-
-  class PendingPhase : public LegacyTask::PendingPhase
-  {
-  public:
-
-    PendingPhase(
-      agv::RobotContextPtr context,
-      std::vector<rmf_traffic::agv::Plan::Waypoint> waypoints,
-      PlanIdPtr plan_id,
-      std::optional<rmf_traffic::Duration> tail_period);
-
-    std::shared_ptr<LegacyTask::ActivePhase> begin() override;
-
-    rmf_traffic::Duration estimate_phase_duration() const override;
-
-    const std::string& description() const override;
-
-  private:
-
-    agv::RobotContextPtr _context;
-    std::vector<rmf_traffic::agv::Plan::Waypoint> _waypoints;
-    PlanIdPtr _plan_id;
-    std::optional<rmf_traffic::Duration> _tail_period;
-    std::string _description;
-  };
-
-  class Action : public std::enable_shared_from_this<Action>
-  {
-  public:
-
-    Action(
-      agv::RobotContextPtr& context,
-      std::vector<rmf_traffic::agv::Plan::Waypoint>& waypoints,
-      rmf_traffic::PlanId plan_id,
-      std::optional<rmf_traffic::Duration> tail_period);
-
-    template<typename Subscriber>
-    void operator()(const Subscriber& s);
-
-  private:
-
-    agv::RobotContextPtr _context;
-    std::vector<rmf_traffic::agv::Plan::Waypoint> _waypoints;
-    rmf_traffic::PlanId _plan_id;
-    std::optional<rmf_traffic::Duration> _tail_period;
-    std::optional<rmf_traffic::Time> _last_tail_bump;
-    std::size_t _next_path_index = 0;
-    std::optional<std::size_t> _first_graph_index;
-
-    rclcpp::TimerBase::SharedPtr _update_timeout_timer;
-    rclcpp::Time _last_update_rostime;
-    // TODO(MXG): Make this timeout configurable by users
-    rmf_traffic::Duration _update_timeout = std::chrono::seconds(10);
-  };
-};
-
-template<typename Subscriber>
-void MoveRobot::Action::operator()(const Subscriber& s)
-{
-  const auto command = _context->command();
-  if (!command)
-    return;
-
-  _context->worker().schedule([w = weak_from_this(), s](const auto&)
+    namespace phases
     {
+
+        namespace
+        {
+            //==============================================================================
+            inline std::string destination(
+                const rmf_traffic::agv::Plan::Waypoint &wp,
+                const rmf_traffic::agv::Graph &graph)
+            {
+                if (wp.graph_index().has_value())
+                    return rmf_task::standard_waypoint_name(graph, *wp.graph_index());
+
+                std::ostringstream oss;
+                oss << "(" << wp.position().block<2, 1>(0, 0).transpose() << ")";
+                return oss.str();
+            }
+        } // anonymous namespace
+
+        struct MoveRobot
+        {
+            class Action;
+
+            class ActivePhase : public LegacyTask::ActivePhase
+            {
+            public:
+                ActivePhase(
+                    agv::RobotContextPtr context,
+                    std::vector<rmf_traffic::agv::Plan::Waypoint> waypoints,
+                    rmf_traffic::PlanId plan_id,
+                    std::optional<rmf_traffic::Duration> tail_period);
+
+                const rxcpp::observable<LegacyTask::StatusMsg> &observe() const override;
+
+                rmf_traffic::Duration estimate_remaining_time() const override;
+
+                void emergency_alarm(bool on) override;
+
+                void cancel() override;
+
+                const std::string &description() const override;
+
+            private:
+                agv::RobotContextPtr _context;
+                std::string _description;
+                std::shared_ptr<Action> _action;
+                rxcpp::observable<LegacyTask::StatusMsg> _obs;
+                rxcpp::subjects::subject<bool> _cancel_subject;
+                std::optional<rmf_traffic::Duration> _tail_period;
+            };
+
+            class PendingPhase : public LegacyTask::PendingPhase
+            {
+            public:
+                PendingPhase(
+                    agv::RobotContextPtr context,
+                    std::vector<rmf_traffic::agv::Plan::Waypoint> waypoints,
+                    PlanIdPtr plan_id,
+                    std::optional<rmf_traffic::Duration> tail_period);
+
+                std::shared_ptr<LegacyTask::ActivePhase> begin() override;
+
+                rmf_traffic::Duration estimate_phase_duration() const override;
+
+                const std::string &description() const override;
+
+            private:
+                agv::RobotContextPtr _context;
+                std::vector<rmf_traffic::agv::Plan::Waypoint> _waypoints;
+                PlanIdPtr _plan_id;
+                std::optional<rmf_traffic::Duration> _tail_period;
+                std::string _description;
+            };
+
+            class Action : public std::enable_shared_from_this<Action>
+            {
+            public:
+                Action(
+                    agv::RobotContextPtr &context,
+                    std::vector<rmf_traffic::agv::Plan::Waypoint> &waypoints,
+                    rmf_traffic::PlanId plan_id,
+                    std::optional<rmf_traffic::Duration> tail_period);
+
+                template <typename Subscriber>
+                void operator()(const Subscriber &s);
+
+            private:
+                agv::RobotContextPtr _context;
+                std::vector<rmf_traffic::agv::Plan::Waypoint> _waypoints;
+                rmf_traffic::PlanId _plan_id;
+                std::optional<rmf_traffic::Duration> _tail_period;
+                std::optional<rmf_traffic::Time> _last_tail_bump;
+                std::size_t _next_path_index = 0;
+                std::optional<std::size_t> _first_graph_index;
+
+                rclcpp::TimerBase::SharedPtr _update_timeout_timer;
+                rclcpp::Time _last_update_rostime;
+                // TODO(MXG): Make this timeout configurable by users
+                rmf_traffic::Duration _update_timeout = std::chrono::seconds(10);
+            };
+        };
+
+        template <typename Subscriber>
+        void MoveRobot::Action::operator()(const Subscriber &s)
+        {
+            const auto command = _context->command();
+            if (!command)
+                return;
+
+            _context->worker().schedule([w = weak_from_this(), s](const auto &)
+                                        {
       const auto self = w.lock();
       if (!self)
         return;
@@ -259,9 +256,15 @@ void MoveRobot::Action::operator()(const Subscriber& s)
         const rmf_traffic::Time now = action->_context->now();
         const auto planned_time = target_wp.time();
         const auto newly_expected_arrival = now + estimate;
-        const auto new_cumulative_delay = std::max(
-          rmf_traffic::Duration(0),
-          newly_expected_arrival - planned_time);
+        // const auto new_cumulative_delay = std::max(
+        //   rmf_traffic::Duration(0),
+        //   newly_expected_arrival - planned_time);
+        // const auto new_cumulative_delay = std::min(
+        //   rmf_traffic::Duration(std::chrono::seconds(1)),
+        //   std::max(
+        //     rmf_traffic::Duration(-std::chrono::seconds(1)),
+        //     newly_expected_arrival - planned_time));
+        const auto new_cumulative_delay = rmf_traffic::Duration(0);
 
         action->_context->worker().schedule(
           [
@@ -388,12 +391,10 @@ void MoveRobot::Action::operator()(const Subscriber& s)
           {
             finish();
           });
-        });
-    });
-}
+        }); });
+        }
 
-} // namespace phases
+    } // namespace phases
 } // namespace rmf_fleet_adapter
-
 
 #endif // SRC__RMF_FLEET_ADAPTER__PHASES__MOVEROBOT_HPP
