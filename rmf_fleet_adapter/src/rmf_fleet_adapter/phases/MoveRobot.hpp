@@ -251,20 +251,44 @@ namespace rmf_fleet_adapter
           return;
         }
 
-        const auto& target_wp = action->_waypoints[path_index];
+        
+        const auto& target_wp = action->_waypoints[path_index]; // 获取当前目标路径点
         using namespace std::chrono_literals;
-        const rmf_traffic::Time now = action->_context->now();
-        const auto planned_time = target_wp.time();
-        const auto newly_expected_arrival = now + estimate;
+        const rmf_traffic::Time now = action->_context->now();// 获取当前时间
+        const auto planned_time = target_wp.time(); // 获取该路径点原计划到达时间
+        const auto newly_expected_arrival = now + estimate;  // 计算新的预计到达时间 = 当前时间 + 剩余估计时间
+        // 方案0: 累积延迟 = 新预计到达时间 - 原计划时间, 即允许正延迟和负延迟
+        // const auto new_cumulative_delay = newly_expected_arrival - planned_time;
+        // 方案1: 累积延迟 = max(0, 新预计到达时间 - 原计划时间), 即只允许正延迟
         // const auto new_cumulative_delay = std::max(
         //   rmf_traffic::Duration(0),
         //   newly_expected_arrival - planned_time);
+        // 方案2: 累积延迟限制在 [-1s, 1s] 范围内, 防止延迟波动过大
         // const auto new_cumulative_delay = std::min(
         //   rmf_traffic::Duration(std::chrono::seconds(1)),
         //   std::max(
         //     rmf_traffic::Duration(-std::chrono::seconds(1)),
         //     newly_expected_arrival - planned_time));
+        // 方案3(当前使用): 累积延迟始终为 0, 即完全按原计划时间表执行
         const auto new_cumulative_delay = rmf_traffic::Duration(0);
+
+        // 打印调度延迟日志
+        // {
+        //   const auto now_s = std::chrono::duration<double>(now.time_since_epoch()).count();
+        //   const auto planned_s = std::chrono::duration<double>(planned_time.time_since_epoch()).count();
+        //   const auto expected_s = std::chrono::duration<double>(newly_expected_arrival.time_since_epoch()).count();
+        //   const auto delay_s = rmf_traffic::time::to_seconds(new_cumulative_delay);
+        //   const auto estimate_s = rmf_traffic::time::to_seconds(estimate);
+        //   RCLCPP_INFO(
+        //     action->_context->node()->get_logger(),
+        //     "机器人=[%s] 目标=[%s] "
+        //     "当前时间=%.2f 计划到达=%.2f 预计到达=%.2f 剩余估计=%.2f 累积延迟=%.2f",
+        //     action->_context->requester_id().c_str(),
+        //     destination(
+        //       action->_waypoints[path_index],
+        //       action->_context->planner()->get_configuration().graph()).c_str(),
+        //     now_s, planned_s, expected_s, estimate_s, delay_s);
+        // }
 
         action->_context->worker().schedule(
           [
