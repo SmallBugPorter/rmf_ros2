@@ -335,54 +335,26 @@ namespace rmf_fleet_adapter
               //   优点: 与 RMF 调度时间严格一致
               //   缺点: 机器人严重延迟时可能提前释放未到达区域
               // ============================================================
-              const auto adjusted_now = now - new_cumulative_delay;
-              const auto& graph = context->navigation_graph();
-              std::unordered_set<std::string> retain_mutexes;
-              for (const auto& wp : self->_waypoints)
-              {
-                const auto s_100 =
-                (int)(rmf_traffic::time::to_seconds(adjusted_now -
-                wp.time()) * 100);
-                const auto s = (double)(s_100)/100.0;
-                if (wp.time() < adjusted_now)
-                {
-                  continue;
-                }
-              
-                if (wp.graph_index().has_value())
-                {
-                  retain_mutexes.insert(
-                    graph.get_waypoint(*wp.graph_index()).in_mutex_group());
-                }
-              
-                for (const auto& l : wp.approach_lanes())
-                {
-                  retain_mutexes.insert(
-                    graph.get_lane(l).properties().in_mutex_group());
-                }
-              }
-              
-              context->retain_mutex_groups(retain_mutexes);
-
-              // ============================================================
-              // 方案B（当前）: 基于实时位置的释放逻辑
-              //   通过 path_index（底层控制器上报的当前目标路径点索引），
-              //   只保留 path_index 及之后路径点的 mutex，之前的全部释放。
-              //   优点: 释放时机与机器人实际物理位置一致
-              //   缺点: 与 RMF 调度时间可能不完全同步
-              // ============================================================
+            //   const auto adjusted_now = now - new_cumulative_delay;
             //   const auto& graph = context->navigation_graph();
             //   std::unordered_set<std::string> retain_mutexes;
-            //   for (std::size_t i = path_index; i < self->_waypoints.size(); ++i)
+            //   for (const auto& wp : self->_waypoints)
             //   {
-            //     const auto& wp = self->_waypoints[i];
-
+            //     const auto s_100 =
+            //     (int)(rmf_traffic::time::to_seconds(adjusted_now -
+            //     wp.time()) * 100);
+            //     const auto s = (double)(s_100)/100.0;
+            //     if (wp.time() < adjusted_now)
+            //     {
+            //       continue;
+            //     }
+              
             //     if (wp.graph_index().has_value())
             //     {
             //       retain_mutexes.insert(
             //         graph.get_waypoint(*wp.graph_index()).in_mutex_group());
             //     }
-
+              
             //     for (const auto& l : wp.approach_lanes())
             //     {
             //       retain_mutexes.insert(
@@ -391,6 +363,33 @@ namespace rmf_fleet_adapter
             //   }
 
             //   context->retain_mutex_groups(retain_mutexes);
+
+              // ============================================================
+              // 方案B（当前）: 基于实时位置的释放逻辑
+              //   通过 path_index（底层控制器上报的当前目标路径点索引），
+              //   只保留 path_index 及之后路径点的 mutex，之前的全部释放。
+              //   优点: 释放时机与机器人实际物理位置一致
+              //   缺点: 与 RMF 调度时间可能不完全同步
+              // ============================================================
+              const auto& graph = context->navigation_graph();
+              std::unordered_set<std::string> retain_mutexes;
+              for (std::size_t i = path_index; i < self->_waypoints.size(); ++i)
+              {
+                const auto& wp = self->_waypoints[i];
+
+                if (wp.graph_index().has_value())
+                {
+                  retain_mutexes.insert(
+                    graph.get_waypoint(*wp.graph_index()).in_mutex_group());
+                }
+
+                for (const auto& l : wp.approach_lanes())
+                {
+                  retain_mutexes.insert(
+                    graph.get_lane(l).properties().in_mutex_group());
+                }
+              }
+              context->retain_mutex_groups(retain_mutexes);
 
               // 方案结束
             }
