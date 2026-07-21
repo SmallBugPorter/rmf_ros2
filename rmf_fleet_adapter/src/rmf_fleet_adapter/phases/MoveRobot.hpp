@@ -258,7 +258,7 @@ namespace rmf_fleet_adapter
         const auto planned_time = target_wp.time(); // 获取该路径点原计划到达时间
         const auto newly_expected_arrival = now + estimate;  // 计算新的预计到达时间 = 当前时间 + 剩余估计时间
         // 方案0: 累积延迟 = 新预计到达时间 - 原计划时间, 即允许正延迟和负延迟
-        // const auto new_cumulative_delay = newly_expected_arrival - planned_time;
+        const auto new_cumulative_delay = newly_expected_arrival - planned_time;
         // 方案1: 累积延迟 = max(0, 新预计到达时间 - 原计划时间), 即只允许正延迟
         // const auto new_cumulative_delay = std::max(
         //   rmf_traffic::Duration(0),
@@ -270,31 +270,32 @@ namespace rmf_fleet_adapter
         //     rmf_traffic::Duration(-std::chrono::seconds(1)),
         //     newly_expected_arrival - planned_time));
         // 方案3(当前使用): 累积延迟始终为 0, 即完全按原计划时间表执行
-        const auto new_cumulative_delay = rmf_traffic::Duration(0);
+        // const auto new_cumulative_delay = rmf_traffic::Duration(0);
 
         // 打印调度延迟日志
-        // {
-        //   const auto now_s = std::chrono::duration<double>(now.time_since_epoch()).count();
-        //   const auto planned_s = std::chrono::duration<double>(planned_time.time_since_epoch()).count();
-        //   const auto expected_s = std::chrono::duration<double>(newly_expected_arrival.time_since_epoch()).count();
-        //   const auto delay_s = rmf_traffic::time::to_seconds(new_cumulative_delay);
-        //   const auto estimate_s = rmf_traffic::time::to_seconds(estimate);
-        //   RCLCPP_INFO(
-        //     action->_context->node()->get_logger(),
-        //     "机器人=[%s] 目标=[%s] "
-        //     "当前时间=%.2f 计划到达=%.2f 预计到达=%.2f 剩余估计=%.2f 累积延迟=%.2f",
-        //     action->_context->requester_id().c_str(),
-        //     destination(
-        //       action->_waypoints[path_index],
-        //       action->_context->planner()->get_configuration().graph()).c_str(),
-        //     now_s, planned_s, expected_s, estimate_s, delay_s);
-        // }
+        {
+          const auto now_s = std::chrono::duration<double>(now.time_since_epoch()).count();
+          const auto planned_s = std::chrono::duration<double>(planned_time.time_since_epoch()).count();
+          const auto expected_s = std::chrono::duration<double>(newly_expected_arrival.time_since_epoch()).count();
+          const auto delay_s = rmf_traffic::time::to_seconds(new_cumulative_delay);
+          const auto estimate_s = rmf_traffic::time::to_seconds(estimate);
+          RCLCPP_INFO(
+            action->_context->node()->get_logger(),
+            "机器人=[%s] 目标=[%s] "
+            "当前时间=%.2f 计划到达=%.2f 预计到达=%.2f 剩余估计=%.2f 累积延迟=%.2f",
+            action->_context->requester_id().c_str(),
+            destination(
+              action->_waypoints[path_index],
+              action->_context->planner()->get_configuration().graph()).c_str(),
+            now_s, planned_s, expected_s, estimate_s, delay_s);
+        }
 
         action->_context->worker().schedule(
           [
             w = action->weak_from_this(),
             now,
-            new_cumulative_delay
+            new_cumulative_delay,
+            path_index
           ](const auto&)
           {
             const auto self = w.lock();
@@ -327,6 +328,13 @@ namespace rmf_fleet_adapter
 
             if (!context->locked_mutex_groups().empty())
             {
+              // ============================================================
+              // 方案A（原始）: 基于时间的释放逻辑
+              //   通过 adjusted_now = now - cumulative_delay 映射到原始调度时间轴，
+              //   释放所有 wp.time() < adjusted_now 的路径点的 mutex。
+              //   优点: 与 RMF 调度时间严格一致
+              //   缺点: 机器人严重延迟时可能提前释放未到达区域
+              // ============================================================
               const auto adjusted_now = now - new_cumulative_delay;
               const auto& graph = context->navigation_graph();
               std::unordered_set<std::string> retain_mutexes;
@@ -340,21 +348,51 @@ namespace rmf_fleet_adapter
                 {
                   continue;
                 }
-
+              
                 if (wp.graph_index().has_value())
                 {
                   retain_mutexes.insert(
                     graph.get_waypoint(*wp.graph_index()).in_mutex_group());
                 }
-
+              
                 for (const auto& l : wp.approach_lanes())
                 {
                   retain_mutexes.insert(
                     graph.get_lane(l).properties().in_mutex_group());
                 }
               }
-
+              
               context->retain_mutex_groups(retain_mutexes);
+
+              // ============================================================
+              // 方案B（当前）: 基于实时位置的释放逻辑
+              //   通过 path_index（底层控制器上报的当前目标路径点索引），
+              //   只保留 path_index 及之后路径点的 mutex，之前的全部释放。
+              //   优点: 释放时机与机器人实际物理位置一致
+              //   缺点: 与 RMF 调度时间可能不完全同步
+              // ============================================================
+            //   const auto& graph = context->navigation_graph();
+            //   std::unordered_set<std::string> retain_mutexes;
+            //   for (std::size_t i = path_index; i < self->_waypoints.size(); ++i)
+            //   {
+            //     const auto& wp = self->_waypoints[i];
+
+            //     if (wp.graph_index().has_value())
+            //     {
+            //       retain_mutexes.insert(
+            //         graph.get_waypoint(*wp.graph_index()).in_mutex_group());
+            //     }
+
+            //     for (const auto& l : wp.approach_lanes())
+            //     {
+            //       retain_mutexes.insert(
+            //         graph.get_lane(l).properties().in_mutex_group());
+            //     }
+            //   }
+
+            //   context->retain_mutex_groups(retain_mutexes);
+
+              // 方案结束
             }
           });
       };
@@ -384,11 +422,23 @@ namespace rmf_fleet_adapter
             }
 
             const auto now = self->_context->now();
-            const auto cumulative_delay = std::max(
-              rmf_traffic::Duration(0),
-              now - self->_waypoints.back().time());
+            // 方案0
+            const auto cumulative_delay = now - self->_waypoints.back().time();
+            // 方案1
+            // const auto cumulative_delay = std::max(
+            //   rmf_traffic::Duration(0),
+            //   now - self->_waypoints.back().time());
             self->_context->itinerary().cumulative_delay(
               self->_plan_id, cumulative_delay, std::chrono::seconds(1));
+
+              RCLCPP_INFO(
+                self->_context->node()->get_logger(),
+                "机器人=[%s] 到达目标=[%s] 累积延迟=%.2f",
+                name.c_str(),
+                destination(
+                  self->_waypoints.back(),
+                  self->_context->planner()->get_configuration().graph()).c_str(),
+                rmf_traffic::time::to_seconds(cumulative_delay));
           }
 
           LegacyTask::StatusMsg msg;
