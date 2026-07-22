@@ -667,7 +667,7 @@ namespace rmf_fleet_adapter
                 const auto t0 = waypoints.empty() ? rmf_traffic::Time(rmf_traffic::Duration(0)) : waypoints.front().time();
                 RCLCPP_INFO(
                     _context->node()->get_logger(),
-                    "=== 规划路径 机器人=[%s] (共 %lu 个路径点) ===",
+                    "=== 规划路径机器人=[%s] (共 %lu 个路径点) ===",
                     _context->requester_id().c_str(),
                     waypoints.size());
                 for (std::size_t i = 0; i < waypoints.size(); ++i)
