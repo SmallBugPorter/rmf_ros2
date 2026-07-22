@@ -153,8 +153,8 @@ namespace rmf_fleet_adapter
 
                 RCLCPP_ERROR(
                     active->_context->node()->get_logger(),
-                    "No destination option was provided for a go_to_place for [%s]. There is "
-                    "nowhere to go, so we will proceed to the next step in the task.",
+                    "[%s] 的 go_to_place 未提供目标选项。"
+                    "无目标可去，将跳转到任务的下一步。",
                     active->_context->requester_id().c_str());
 
                 active->_context->worker().schedule(
@@ -189,7 +189,7 @@ namespace rmf_fleet_adapter
                             {
                                 RCLCPP_INFO(
                                     self->_context->node()->get_logger(),
-                                    "Replanning requested for [%s]",
+                                    "收到 [%s] 的重规划请求",
                                     self->_context->requester_id().c_str());
 
                                 if (const auto c = self->_context->command())
@@ -218,7 +218,7 @@ namespace rmf_fleet_adapter
                                 // because the upcoming solution might involve a closed lane
                                 RCLCPP_INFO(
                                     self->_context->node()->get_logger(),
-                                    "Requesting replan for [%s] to account for a newly closed lane",
+                                    "为 [%s] 请求重规划以应对新关闭的车道",
                                     self->_context->requester_id().c_str());
                                 self->_context->request_replan();
                                 return;
@@ -242,7 +242,7 @@ namespace rmf_fleet_adapter
                                             // so let's replan.
                                             RCLCPP_INFO(
                                                 self->_context->node()->get_logger(),
-                                                "Requesting replan for [%s] to avoid a newly closed lane",
+                                                "为 [%s] 请求重规划以避开新关闭的车道",
                                                 self->_context->requester_id().c_str());
                                             self->_context->request_replan();
                                             return;
@@ -256,7 +256,7 @@ namespace rmf_fleet_adapter
                                 // _find_path_service, but let's just request a replan.
                                 RCLCPP_INFO(
                                     self->_context->node()->get_logger(),
-                                    "Requesting replan for [%s] to account for a newly closed lane (v2)",
+                                    "为 [%s] 请求重规划以应对新关闭的车道 (v2)",
                                     self->_context->requester_id().c_str());
                                 self->_context->request_replan();
                             }
@@ -290,8 +290,8 @@ namespace rmf_fleet_adapter
                 {
                     RCLCPP_ERROR(
                         _context->node()->get_logger(),
-                        "Missing plan_id for go_to_place of robot [%s]. Please report this "
-                        "critical bug to the maintainers of RMF.",
+                        "机器人 [%s] 的 go_to_place 缺少 plan_id。"
+                        "请将此严重 bug 报告给 RMF 维护者。",
                         _context->requester_id().c_str());
                 }
             }
@@ -354,7 +354,7 @@ namespace rmf_fleet_adapter
         {
             RCLCPP_INFO(
                 _context->node()->get_logger(),
-                "Canceling go_to_place for robot [%s]",
+                "取消机器人 [%s] 的 go_to_place",
                 _context->requester_id().c_str());
             _stop_and_clear();
             _state->update_status(Status::Canceled);
@@ -413,14 +413,14 @@ namespace rmf_fleet_adapter
                 // unable to get location. We should return some form of error stste.
                 RCLCPP_ERROR(
                     _context->node()->get_logger(),
-                    "Robot [%s] can't get location",
+                    "机器人 [%s] 无法获取位置",
                     _context->requester_id().c_str());
                 return std::nullopt;
             }
 
             RCLCPP_INFO(
                 _context->node()->get_logger(),
-                "Selecting a new go_to_place location from [%lu] choices for robot [%s]",
+                "从 [%lu] 个候选中为机器人 [%s] 选择 go_to_place 目标位置",
                 _description.one_of().size(),
                 _context->requester_id().c_str());
 
@@ -439,7 +439,7 @@ namespace rmf_fleet_adapter
                     {
                         RCLCPP_INFO(
                             _context->node()->get_logger(),
-                            "Skipping [%lu] as it is on map [%s] but robot is on map [%s].",
+                            "跳过 [%lu]，因其在地图 [%s] 上但机器人在 [%s] 地图上。",
                             wp_idx,
                             wp.get_map_name().c_str(),
                             _context->map().c_str());
@@ -453,7 +453,7 @@ namespace rmf_fleet_adapter
                 {
                     RCLCPP_INFO(
                         _context->node()->get_logger(),
-                        "Got distance from [%lu] as %f",
+                        "计算到 [%lu] 的距离: %f",
                         wp_idx,
                         result->cost());
 
@@ -467,7 +467,7 @@ namespace rmf_fleet_adapter
                 {
                     RCLCPP_ERROR(
                         _context->node()->get_logger(),
-                        "No path found for robot [%s] to waypoint [%lu]",
+                        "机器人 [%s] 到路径点 [%lu] 找不到路径",
                         _context->requester_id().c_str(),
                         wp_idx);
                 }
@@ -504,9 +504,9 @@ namespace rmf_fleet_adapter
                 _state->update_log().error(error_msg);
                 RCLCPP_ERROR(
                     _context->node()->get_logger(),
-                    "%s for [%s]",
-                    error_msg.c_str(),
-                    _context->requester_id().c_str());
+                    "[%s] %s",
+                    _context->requester_id().c_str(),
+                    error_msg.c_str());
 
                 _schedule_retry();
                 return;
@@ -520,8 +520,8 @@ namespace rmf_fleet_adapter
 
             const auto &graph = _context->navigation_graph();
             std::stringstream ss;
-            ss << "Planning for [" << _context->requester_id()
-               << "] to [" << goal_name << "] from one of these locations:"
+            ss << "为 [" << _context->requester_id()
+               << "] 规划路径到 [" << goal_name << "]，起始位置: "
                << agv::print_starts(_context->location(), graph);
 
             RCLCPP_INFO(
@@ -647,7 +647,7 @@ namespace rmf_fleet_adapter
                     "The planner indicates that the robot is already at its goal.");
                 RCLCPP_INFO(
                     _context->node()->get_logger(),
-                    "Robot [%s] is already at its goal [%lu]",
+                    "机器人 [%s] 已在目标 [%lu] 处",
                     _context->requester_id().c_str(),
                     goal.waypoint());
 
@@ -686,11 +686,11 @@ namespace rmf_fleet_adapter
 
             RCLCPP_INFO(
                 _context->node()->get_logger(),
-                "Executing go_to_place [%s] for robot [%s]",
+                "为机器人 [%s] 执行 go_to_place: [%s]",
+                _context->requester_id().c_str(),
                 graph.get_waypoint(plan.get_waypoints().back().graph_index().value())
                     .name_or_index()
-                    .c_str(),
-                _context->requester_id().c_str());
+                    .c_str());
 
             _execution = ExecutePlan::make(
                 _context, plan_id, std::move(plan), std::move(goal),
