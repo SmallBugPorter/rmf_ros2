@@ -272,23 +272,23 @@ namespace rmf_fleet_adapter
         // 方案3(当前使用): 累积延迟始终为 0, 即完全按原计划时间表执行
         // const auto new_cumulative_delay = rmf_traffic::Duration(0);
 
-        // 打印调度延迟日志
-        {
-          const auto now_s = std::chrono::duration<double>(now.time_since_epoch()).count();
-          const auto planned_s = std::chrono::duration<double>(planned_time.time_since_epoch()).count();
-          const auto expected_s = std::chrono::duration<double>(newly_expected_arrival.time_since_epoch()).count();
-          const auto delay_s = rmf_traffic::time::to_seconds(new_cumulative_delay);
-          const auto estimate_s = rmf_traffic::time::to_seconds(estimate);
-          RCLCPP_INFO(
-            action->_context->node()->get_logger(),
-            "机器人=[%s] 目标=[%s] "
-            "当前时间=%.2f 计划到达=%.2f 预计到达=%.2f 剩余估计=%.2f 累积延迟=%.2f",
-            action->_context->requester_id().c_str(),
-            destination(
-              action->_waypoints[path_index],
-              action->_context->planner()->get_configuration().graph()).c_str(),
-            now_s, planned_s, expected_s, estimate_s, delay_s);
-        }
+        // // 打印调度延迟日志
+        // {
+        //   const auto now_s = std::chrono::duration<double>(now.time_since_epoch()).count();
+        //   const auto planned_s = std::chrono::duration<double>(planned_time.time_since_epoch()).count();
+        //   const auto expected_s = std::chrono::duration<double>(newly_expected_arrival.time_since_epoch()).count();
+        //   const auto delay_s = rmf_traffic::time::to_seconds(new_cumulative_delay);
+        //   const auto estimate_s = rmf_traffic::time::to_seconds(estimate);
+        //   RCLCPP_INFO(
+        //     action->_context->node()->get_logger(),
+        //     "机器人=[%s] 目标=[%s] "
+        //     "当前时间=%.2f 计划到达=%.2f 预计到达=%.2f 剩余估计=%.2f 累积延迟=%.2f",
+        //     action->_context->requester_id().c_str(),
+        //     destination(
+        //       action->_waypoints[path_index],
+        //       action->_context->planner()->get_configuration().graph()).c_str(),
+        //     now_s, planned_s, expected_s, estimate_s, delay_s);
+        // }
 
         action->_context->worker().schedule(
           [
@@ -335,34 +335,34 @@ namespace rmf_fleet_adapter
               //   优点: 与 RMF 调度时间严格一致
               //   缺点: 机器人严重延迟时可能提前释放未到达区域
               // ============================================================
-            //   const auto adjusted_now = now - new_cumulative_delay;
-            //   const auto& graph = context->navigation_graph();
-            //   std::unordered_set<std::string> retain_mutexes;
-            //   for (const auto& wp : self->_waypoints)
-            //   {
-            //     const auto s_100 =
-            //     (int)(rmf_traffic::time::to_seconds(adjusted_now -
-            //     wp.time()) * 100);
-            //     const auto s = (double)(s_100)/100.0;
-            //     if (wp.time() < adjusted_now)
-            //     {
-            //       continue;
-            //     }
+              const auto adjusted_now = now - new_cumulative_delay;
+              const auto& graph = context->navigation_graph();
+              std::unordered_set<std::string> retain_mutexes;
+              for (const auto& wp : self->_waypoints)
+              {
+                const auto s_100 =
+                (int)(rmf_traffic::time::to_seconds(adjusted_now -
+                wp.time()) * 100);
+                const auto s = (double)(s_100)/100.0;
+                if (wp.time() < adjusted_now)
+                {
+                  continue;
+                }
               
-            //     if (wp.graph_index().has_value())
-            //     {
-            //       retain_mutexes.insert(
-            //         graph.get_waypoint(*wp.graph_index()).in_mutex_group());
-            //     }
+                if (wp.graph_index().has_value())
+                {
+                  retain_mutexes.insert(
+                    graph.get_waypoint(*wp.graph_index()).in_mutex_group());
+                }
               
-            //     for (const auto& l : wp.approach_lanes())
-            //     {
-            //       retain_mutexes.insert(
-            //         graph.get_lane(l).properties().in_mutex_group());
-            //     }
-            //   }
+                for (const auto& l : wp.approach_lanes())
+                {
+                  retain_mutexes.insert(
+                    graph.get_lane(l).properties().in_mutex_group());
+                }
+              }
 
-            //   context->retain_mutex_groups(retain_mutexes);
+              context->retain_mutex_groups(retain_mutexes);
 
               // ============================================================
               // 方案B（当前）: 基于实时位置的释放逻辑
@@ -371,25 +371,25 @@ namespace rmf_fleet_adapter
               //   优点: 释放时机与机器人实际物理位置一致
               //   缺点: 与 RMF 调度时间可能不完全同步
               // ============================================================
-              const auto& graph = context->navigation_graph();
-              std::unordered_set<std::string> retain_mutexes;
-              for (std::size_t i = path_index; i < self->_waypoints.size(); ++i)
-              {
-                const auto& wp = self->_waypoints[i];
+            //   const auto& graph = context->navigation_graph();
+            //   std::unordered_set<std::string> retain_mutexes;
+            //   for (std::size_t i = path_index; i < self->_waypoints.size(); ++i)
+            //   {
+            //     const auto& wp = self->_waypoints[i];
 
-                if (wp.graph_index().has_value())
-                {
-                  retain_mutexes.insert(
-                    graph.get_waypoint(*wp.graph_index()).in_mutex_group());
-                }
+            //     if (wp.graph_index().has_value())
+            //     {
+            //       retain_mutexes.insert(
+            //         graph.get_waypoint(*wp.graph_index()).in_mutex_group());
+            //     }
 
-                for (const auto& l : wp.approach_lanes())
-                {
-                  retain_mutexes.insert(
-                    graph.get_lane(l).properties().in_mutex_group());
-                }
-              }
-              context->retain_mutex_groups(retain_mutexes);
+            //     for (const auto& l : wp.approach_lanes())
+            //     {
+            //       retain_mutexes.insert(
+            //         graph.get_lane(l).properties().in_mutex_group());
+            //     }
+            //   }
+            //   context->retain_mutex_groups(retain_mutexes);
 
               // 方案结束
             }

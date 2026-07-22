@@ -13,107 +13,109 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
-*/
+ */
 
 #include "WaitForTraffic.hpp"
 
-namespace rmf_fleet_adapter {
-namespace events {
-
-//==============================================================================
-auto WaitForTraffic::Standby::make(
-  agv::RobotContextPtr context,
-  PlanIdPtr plan_id,
-  rmf_traffic::Dependencies dependencies,
-  rmf_traffic::Time expected_time,
-  const AssignIDPtr& id,
-  std::function<void()> update) -> std::shared_ptr<Standby>
+namespace rmf_fleet_adapter
 {
-  auto standby = std::make_shared<Standby>();
-  standby->_context = std::move(context);
-  standby->_plan_id = plan_id;
-  standby->_dependencies = std::move(dependencies);
-  standby->_expected_time = expected_time;
-  standby->_state = rmf_task::events::SimpleEventState::make(
-    id->assign(), "Wait for traffic", "",
-    rmf_task::Event::Status::Standby, {}, standby->_context->clock());
-  standby->_update = std::move(update);
+    namespace events
+    {
 
-  return standby;
-}
+        //==============================================================================
+        auto WaitForTraffic::Standby::make(
+            agv::RobotContextPtr context,
+            PlanIdPtr plan_id,
+            rmf_traffic::Dependencies dependencies,
+            rmf_traffic::Time expected_time,
+            const AssignIDPtr &id,
+            std::function<void()> update) -> std::shared_ptr<Standby>
+        {
+            auto standby = std::make_shared<Standby>();
+            standby->_context = std::move(context);
+            standby->_plan_id = plan_id;
+            standby->_dependencies = std::move(dependencies);
+            standby->_expected_time = expected_time;
+            standby->_state = rmf_task::events::SimpleEventState::make(
+                id->assign(), "Wait for traffic", "",
+                rmf_task::Event::Status::Standby, {}, standby->_context->clock());
+            standby->_update = std::move(update);
 
-//==============================================================================
-auto WaitForTraffic::Standby::state() const -> ConstStatePtr
-{
-  return _state;
-}
+            return standby;
+        }
 
-//==============================================================================
-rmf_traffic::Duration WaitForTraffic::Standby::duration_estimate() const
-{
-  return rmf_traffic::Duration(0);
-}
+        //==============================================================================
+        auto WaitForTraffic::Standby::state() const -> ConstStatePtr
+        {
+            return _state;
+        }
 
-//==============================================================================
-auto WaitForTraffic::Standby::begin(
-  std::function<void()>,
-  std::function<void()> finished) -> ActivePtr
-{
-  RCLCPP_INFO(
-    _context->node()->get_logger(),
-    "[%s] waiting for traffic",
-    _context->requester_id().c_str());
-  rmf_traffic::PlanId plan_id = 0;
-  if (_plan_id)
-  {
-    plan_id = *_plan_id;
-  }
-  else
-  {
-    RCLCPP_ERROR(
-      _context->node()->get_logger(),
-      "No plan_id was provided for WaitForTraffic action for robot [%s]. This "
-      "is a critical internal error, please report this bug to the RMF "
-      "maintainers.",
-      _context->requester_id().c_str());
-  }
+        //==============================================================================
+        rmf_traffic::Duration WaitForTraffic::Standby::duration_estimate() const
+        {
+            return rmf_traffic::Duration(0);
+        }
 
-  return Active::make(
-    _context,
-    plan_id,
-    _dependencies,
-    _expected_time,
-    _state,
-    _update,
-    std::move(finished));
-}
+        //==============================================================================
+        auto WaitForTraffic::Standby::begin(
+            std::function<void()>,
+            std::function<void()> finished) -> ActivePtr
+        {
+            RCLCPP_INFO(
+                _context->node()->get_logger(),
+                "[%s] waiting for traffic",
+                _context->requester_id().c_str());
+            rmf_traffic::PlanId plan_id = 0;
+            if (_plan_id)
+            {
+                plan_id = *_plan_id;
+            }
+            else
+            {
+                RCLCPP_ERROR(
+                    _context->node()->get_logger(),
+                    "No plan_id was provided for WaitForTraffic action for robot [%s]. This "
+                    "is a critical internal error, please report this bug to the RMF "
+                    "maintainers.",
+                    _context->requester_id().c_str());
+            }
 
-//==============================================================================
-auto WaitForTraffic::Active::make(
-  agv::RobotContextPtr context,
-  const rmf_traffic::PlanId plan_id,
-  const rmf_traffic::Dependencies& dependencies,
-  rmf_traffic::Time expected_time,
-  rmf_task::events::SimpleEventStatePtr state,
-  std::function<void()> update,
-  std::function<void()> finished) -> std::shared_ptr<Active>
-{
-  using MutexGroupRequestPtr =
-    std::shared_ptr<rmf_fleet_msgs::msg::MutexGroupRequest>;
+            return Active::make(
+                _context,
+                plan_id,
+                _dependencies,
+                _expected_time,
+                _state,
+                _update,
+                std::move(finished));
+        }
 
-  auto active = std::make_shared<Active>();
-  active->_context = std::move(context);
-  active->_plan_id = plan_id;
-  active->_expected_time = expected_time;
-  active->_state = std::move(state);
-  active->_update = std::move(update);
-  active->_finished = std::move(finished);
+        //==============================================================================
+        auto WaitForTraffic::Active::make(
+            agv::RobotContextPtr context,
+            const rmf_traffic::PlanId plan_id,
+            const rmf_traffic::Dependencies &dependencies,
+            rmf_traffic::Time expected_time,
+            rmf_task::events::SimpleEventStatePtr state,
+            std::function<void()> update,
+            std::function<void()> finished) -> std::shared_ptr<Active>
+        {
+            using MutexGroupRequestPtr =
+                std::shared_ptr<rmf_fleet_msgs::msg::MutexGroupRequest>;
 
-  active->_mutex_group_listener = active->_context->node()
-    ->mutex_group_request_obs()
-    .observe_on(rxcpp::identity_same_worker(active->_context->worker()))
-    .subscribe([w = active->weak_from_this()](const MutexGroupRequestPtr& msg)
-      {
+            auto active = std::make_shared<Active>();
+            active->_context = std::move(context);
+            active->_plan_id = plan_id;
+            active->_expected_time = expected_time;
+            active->_state = std::move(state);
+            active->_update = std::move(update);
+            active->_finished = std::move(finished);
+
+            active->_mutex_group_listener = active->_context->node()
+                                                ->mutex_group_request_obs()
+                                                .observe_on(rxcpp::identity_same_worker(active->_context->worker()))
+                                                .subscribe([w = active->weak_from_this()](const MutexGroupRequestPtr &msg)
+                                                           {
         const auto self = w.lock();
         if (!self)
           return;
@@ -137,197 +139,204 @@ auto WaitForTraffic::Active::make(
               return d.dependency().on_participant == msg->claimant;
             });
           self->_dependencies.erase(r_it, self->_dependencies.end());
+        } });
+
+            const auto consider_going = [w = active->weak_from_this()]()
+            {
+                if (const auto self = w.lock())
+                {
+                    self->_context->worker().schedule(
+                        [w = self->weak_from_this()](const auto &)
+                        {
+                            if (const auto self = w.lock())
+                                self->_consider_going();
+                        });
+                }
+            };
+
+            active->_dependencies.reserve(dependencies.size());
+            bool all_reached_already = true;
+            bool one_deprecated = false;
+            std::unordered_set<rmf_traffic::ParticipantId> waiting_for_participants;
+            for (const auto &dep : dependencies)
+            {
+                active->_dependencies.push_back(
+                    active->_context->schedule()->watch_dependency(
+                        dep, consider_going, consider_going));
+
+                const auto &sub = active->_dependencies.back();
+                if (!sub.reached())
+                {
+                    all_reached_already = false;
+                    waiting_for_participants.insert(dep.on_participant);
+                }
+
+                if (sub.deprecated())
+                    one_deprecated = true;
+            }
+
+            for (const auto p : waiting_for_participants)
+            {
+                const auto participant = active->_context->schedule()->get_participant(p);
+                if (participant)
+                {
+                    active->_state->update_log().info(
+                        "Waiting for [robot:" + participant->name() + "]");
+                }
+            }
+
+            if (all_reached_already || one_deprecated)
+                consider_going();
+
+            active->_timer = active->_context->node()->try_create_wall_timer(
+                std::chrono::seconds(1), consider_going);
+
+            return active;
         }
-      });
 
-  const auto consider_going = [w = active->weak_from_this()]()
-    {
-      if (const auto self = w.lock())
-      {
-        self->_context->worker().schedule(
-          [w = self->weak_from_this()](const auto&)
-          {
-            if (const auto self = w.lock())
-              self->_consider_going();
-          });
-      }
-    };
+        //==============================================================================
+        auto WaitForTraffic::Active::state() const -> ConstStatePtr
+        {
+            return _state;
+        }
 
-  active->_dependencies.reserve(dependencies.size());
-  bool all_reached_already = true;
-  bool one_deprecated = false;
-  std::unordered_set<rmf_traffic::ParticipantId> waiting_for_participants;
-  for (const auto& dep : dependencies)
-  {
-    active->_dependencies.push_back(
-      active->_context->schedule()->watch_dependency(
-        dep, consider_going, consider_going));
+        //==============================================================================
+        rmf_traffic::Duration WaitForTraffic::Active::remaining_time_estimate() const
+        {
+            const auto estimate = _expected_time - _context->now();
+            if (estimate.count() > 0)
+                return estimate;
 
-    const auto& sub = active->_dependencies.back();
-    if (!sub.reached())
-    {
-      all_reached_already = false;
-      waiting_for_participants.insert(dep.on_participant);
-    }
+            return rmf_traffic::Duration(0);
+        }
 
-    if (sub.deprecated())
-      one_deprecated = true;
-  }
+        //==============================================================================
+        auto WaitForTraffic::Active::backup() const -> Backup
+        {
+            // WaitForTraffic does not do backups
+            return Backup::make(0, nlohmann::json());
+        }
 
-  for (const auto p : waiting_for_participants)
-  {
-    const auto participant = active->_context->schedule()->get_participant(p);
-    if (participant)
-    {
-      active->_state->update_log().info(
-        "Waiting for [robot:" + participant->name() + "]");
-    }
-  }
+        //==============================================================================
+        auto WaitForTraffic::Active::interrupt(std::function<void()>) -> Resume
+        {
+            _decision_made = std::chrono::steady_clock::now();
+            // WaitForTraffic is not designed to resume after interrupting.
+            // That is handled by GoToPlace.
+            return Resume::make([]() { /* do nothing */ });
+        }
 
-  if (all_reached_already || one_deprecated)
-    consider_going();
+        //==============================================================================
+        void WaitForTraffic::Active::cancel()
+        {
+            _decision_made = std::chrono::steady_clock::now();
+            _state->update_log().info("Received signal to cancel");
+            _state->update_status(Status::Canceled);
+            _finished();
+        }
 
-  active->_timer = active->_context->node()->try_create_wall_timer(
-    std::chrono::seconds(1), consider_going);
+        //==============================================================================
+        void WaitForTraffic::Active::kill()
+        {
+            _decision_made = std::chrono::steady_clock::now();
+            _state->update_log().info("Received signal to kill");
+            _state->update_status(Status::Killed);
+            _finished();
+        }
 
-  return active;
-}
+        //==============================================================================
+        void WaitForTraffic::Active::_consider_going()
+        {
+            if (_decision_made)
+            {
+                const auto time_lapse = std::chrono::steady_clock::now() - *_decision_made;
+                if (time_lapse > std::chrono::seconds(10))
+                {
+                    RCLCPP_WARN(
+                        _context->node()->get_logger(),
+                        "[WaitForTraffic] excessive time lapse of %fs after a decision should "
+                        "have been made. Triggering a replan to recover.",
+                        rmf_traffic::time::to_seconds(time_lapse));
+                    _replan();
+                }
 
-//==============================================================================
-auto WaitForTraffic::Active::state() const -> ConstStatePtr
-{
-  return _state;
-}
+                return;
+            }
 
-//==============================================================================
-rmf_traffic::Duration WaitForTraffic::Active::remaining_time_estimate() const
-{
-  const auto estimate = _expected_time - _context->now();
-  if (estimate.count() > 0)
-    return estimate;
+            bool all_dependencies_reached = true;
+            for (const auto &dep : _dependencies)
+            {
+                if (!dep.reached() && !dep.deprecated())
+                    all_dependencies_reached = false;
+            }
 
-  return rmf_traffic::Duration(0);
-}
+            // 切换任务后依赖切换
+            // bool all_dependencies_reached = true;
+            // bool any_dependency_deprecated = false;
+            // for (const auto &dep : _dependencies)
+            // {
+            //     if (dep.deprecated() && !dep.reached())
+            //         any_dependency_deprecated = true;
 
-//==============================================================================
-auto WaitForTraffic::Active::backup() const -> Backup
-{
-  // WaitForTraffic does not do backups
-  return Backup::make(0, nlohmann::json());
-}
+            //     if (!dep.reached() && !dep.deprecated())
+            //         all_dependencies_reached = false;
+            // }
 
-//==============================================================================
-auto WaitForTraffic::Active::interrupt(std::function<void()>) -> Resume
-{
-  _decision_made = std::chrono::steady_clock::now();
-  // WaitForTraffic is not designed to resume after interrupting.
-  // That is handled by GoToPlace.
-  return Resume::make([]() { /* do nothing */ });
-}
+            // if (any_dependency_deprecated)
+            // {
+            //     _state->update_status(Status::Delayed);
+            //     _state->update_log().info(
+            //         "Replanning because a traffic dependency was superseded before "
+            //         "being reached");
+            //     RCLCPP_INFO(
+            //         _context->node()->get_logger(),
+            //         "Replanning for [%s] because a traffic dependency was deprecated "
+            //         "before being reached",
+            //         _context->requester_id().c_str());
+            //     return _replan();
+            // }
 
-//==============================================================================
-void WaitForTraffic::Active::cancel()
-{
-  _decision_made = std::chrono::steady_clock::now();
-  _state->update_log().info("Received signal to cancel");
-  _state->update_status(Status::Canceled);
-  _finished();
-}
+            if (all_dependencies_reached)
+            {
+                _decision_made = std::chrono::steady_clock::now();
+                _state->update_status(Status::Completed);
+                _state->update_log().info("All traffic dependencies satisfied");
+                RCLCPP_INFO(
+                    _context->node()->get_logger(),
+                    "[%s] done waiting for traffic",
+                    _context->requester_id().c_str());
+                return _finished();
+            }
 
-//==============================================================================
-void WaitForTraffic::Active::kill()
-{
-  _decision_made = std::chrono::steady_clock::now();
-  _state->update_log().info("Received signal to kill");
-  _state->update_status(Status::Killed);
-  _finished();
-}
+            using namespace std::chrono_literals;
+            const auto now = _context->now();
+            const auto cumulative_delay = now - _expected_time;
+            if (30s < cumulative_delay)
+            {
+                // TODO(MXG): Make the max waiting time configurable
+                _state->update_status(Status::Delayed);
+                _state->update_log().info(
+                    "Replanning because a traffic dependency is excessively delayed");
+                RCLCPP_INFO(
+                    _context->node()->get_logger(),
+                    "Replanning for [%s] because a traffic dependency is excessively delayed",
+                    _context->requester_id().c_str());
+                return _replan();
+            }
 
-//==============================================================================
-void WaitForTraffic::Active::_consider_going()
-{
-  if (_decision_made)
-  {
-    const auto time_lapse = std::chrono::steady_clock::now() - *_decision_made;
-    if (time_lapse > std::chrono::seconds(10))
-    {
-      RCLCPP_WARN(
-        _context->node()->get_logger(),
-        "[WaitForTraffic] excessive time lapse of %fs after a decision should "
-        "have been made. Triggering a replan to recover.",
-        rmf_traffic::time::to_seconds(time_lapse));
-      _replan();
-    }
+            const auto current_delay = _context->itinerary().cumulative_delay(_plan_id);
+            if (current_delay.has_value() && *current_delay < cumulative_delay)
+            {
+                _context->itinerary().cumulative_delay(_plan_id, cumulative_delay, 500ms);
+            }
+        }
 
-    return;
-  }
+        //==============================================================================
+        void WaitForTraffic::Active::_replan()
+        {
+            _decision_made = std::chrono::steady_clock::now();
+            _context->request_replan();
+        }
 
-  bool all_dependencies_reached = true;
-  bool any_dependency_deprecated = false;
-  for (const auto& dep : _dependencies)
-  {
-    if (dep.deprecated() && !dep.reached())
-      any_dependency_deprecated = true;
-
-    if (!dep.reached() && !dep.deprecated())
-      all_dependencies_reached = false;
-  }
-
-  if (any_dependency_deprecated)
-  {
-    _state->update_status(Status::Delayed);
-    _state->update_log().info(
-      "Replanning because a traffic dependency was superseded before "
-      "being reached");
-    RCLCPP_INFO(
-      _context->node()->get_logger(),
-      "Replanning for [%s] because a traffic dependency was deprecated "
-      "before being reached",
-      _context->requester_id().c_str());
-    return _replan();
-  }
-
-  if (all_dependencies_reached)
-  {
-    _decision_made = std::chrono::steady_clock::now();
-    _state->update_status(Status::Completed);
-    _state->update_log().info("All traffic dependencies satisfied");
-    RCLCPP_INFO(
-      _context->node()->get_logger(),
-      "[%s] done waiting for traffic",
-      _context->requester_id().c_str());
-    return _finished();
-  }
-
-  using namespace std::chrono_literals;
-  const auto now = _context->now();
-  const auto cumulative_delay = now - _expected_time;
-  if (30s < cumulative_delay)
-  {
-    // TODO(MXG): Make the max waiting time configurable
-    _state->update_status(Status::Delayed);
-    _state->update_log().info(
-      "Replanning because a traffic dependency is excessively delayed");
-    RCLCPP_INFO(
-      _context->node()->get_logger(),
-      "Replanning for [%s] because a traffic dependency is excessively delayed",
-      _context->requester_id().c_str());
-    return _replan();
-  }
-
-  const auto current_delay = _context->itinerary().cumulative_delay(_plan_id);
-  if (current_delay.has_value() && *current_delay < cumulative_delay)
-  {
-    _context->itinerary().cumulative_delay(_plan_id, cumulative_delay, 500ms);
-  }
-}
-
-//==============================================================================
-void WaitForTraffic::Active::_replan()
-{
-  _decision_made = std::chrono::steady_clock::now();
-  _context->request_replan();
-}
-
-} // namespace events
+    } // namespace events
 } // namespace rmf_fleet_adapter

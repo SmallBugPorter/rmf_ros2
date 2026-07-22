@@ -674,7 +674,7 @@ namespace rmf_fleet_adapter
                 {
                     RCLCPP_INFO(
                         _context->node()->get_logger(),
-                        "  [%lu] %s",
+                        "  [%3lu] %s",
                         i,
                         agv::print_plan_waypoint(waypoints[i], graph, t0).c_str());
                 }
@@ -686,7 +686,7 @@ namespace rmf_fleet_adapter
 
             RCLCPP_INFO(
                 _context->node()->get_logger(),
-                "为机器人 [%s] 执行 go_to_place: [%s]",
+                "执行器准备为机器人 [%s] 执行 go_to_place: [%s]",
                 _context->requester_id().c_str(),
                 graph.get_waypoint(plan.get_waypoints().back().graph_index().value())
                     .name_or_index()
