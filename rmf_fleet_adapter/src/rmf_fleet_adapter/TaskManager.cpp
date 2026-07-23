@@ -1216,7 +1216,7 @@ namespace rmf_fleet_adapter
 
         RCLCPP_INFO(
             _context->node()->get_logger(),
-            "直接请求 [%s] 已成功加入机器人 [%s] 的队列",
+            "直接任务请求 [%s] 已成功加入机器人 [%s] 的队列",
             request_id.c_str(),
             robot.c_str());
 

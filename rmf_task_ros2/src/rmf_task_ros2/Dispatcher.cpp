@@ -430,7 +430,7 @@ namespace rmf_task_ros2
         {
             RCLCPP_INFO(
                 node->get_logger(),
-                "handle_api_request: request_id=[%s], json_msg=[%s]",
+                "网页任务请求：handle_api_request: request_id=[%s], json_msg=[%s]",
                 msg.request_id.c_str(),
                 msg.json_msg.c_str());
 
