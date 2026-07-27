@@ -265,35 +265,40 @@ namespace rmf_fleet_adapter
             const rmf_traffic::agv::Graph &graph)
         {
             std::stringstream ss;
+            ss << std::fixed << std::setprecision(2);
+            bool first = true;
             for (const rmf_traffic::agv::Plan::Start &l : starts)
             {
-                ss << "\n -- ";
+                if (!first)
+                    ss << "; ";
+                first = false;
+
+                const auto &waypoint = graph.get_waypoint(l.waypoint());
+                const auto position = l.location().value_or(
+                    waypoint.get_location());
+
+                ss << waypoint.get_map_name()
+                   << " [" << waypoint.name_or_index() << "]"
+                   << " (x=" << position.x()
+                   << ",y=" << position.y() << ")"
+                   << " yaw=" << l.orientation();
+
                 if (l.lane().has_value())
                 {
-                    ss << print_lane(*l.lane(), graph);
+                    ss << ",on lane " << *l.lane();
 
                     const auto &lane = graph.get_lane(*l.lane());
                     if (l.waypoint() != lane.exit().waypoint_index())
                     {
-                        ss << " !! MISMATCH BETWEEN KEY WAYPOINT AND LANE EXIT: key "
-                           << l.waypoint() << " vs exit " << lane.exit().waypoint_index();
+                        ss << " [MISMATCH: key waypoint "
+                           << l.waypoint() << " vs exit "
+                           << lane.exit().waypoint_index() << "]";
                     }
                 }
                 else
                 {
-                    ss << print_waypoint(l.waypoint(), graph);
+                    ss << ",on waypoint";
                 }
-
-                if (l.location().has_value())
-                {
-                    ss << " | location <" << l.location()->transpose() << ">";
-                }
-                else
-                {
-                    ss << " | on waypoint";
-                }
-
-                ss << " | orientation " << l.orientation() * 180.0 / M_PI;
             }
 
             return ss.str();
