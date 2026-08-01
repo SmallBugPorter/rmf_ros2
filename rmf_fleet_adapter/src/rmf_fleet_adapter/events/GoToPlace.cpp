@@ -665,176 +665,176 @@ namespace rmf_fleet_adapter
             const auto &graph = _context->navigation_graph();
 
             // ---- 完整打印 Plan，包含执行路径点和 itinerary 轨迹顶点 ----
-            {
-                const auto &waypoints = plan.get_waypoints();
-                const auto &itinerary = plan.get_itinerary();
-                const auto &start = plan.get_start();
-                const auto t0 = start.time();
-                std::stringstream plan_dump;
-                plan_dump << std::fixed << std::setprecision(6);
-                plan_dump
-                    << "\n========== Plan 完整数据: robot=["
-                    << _context->requester_id() << "] =========="
-                    << "\nplan_id=" << plan_id
-                    << ", cost=" << plan.get_cost()
-                    << ", waypoint_count=" << waypoints.size()
-                    << ", route_count=" << itinerary.size()
-                    << "\nstart: waypoint=" << start.waypoint()
-                    << ", time_from_start=0.000000"
-                    << ", orientation=" << start.orientation();
+            // {
+            //     const auto &waypoints = plan.get_waypoints();
+            //     const auto &itinerary = plan.get_itinerary();
+            //     const auto &start = plan.get_start();
+            //     const auto t0 = start.time();
+            //     std::stringstream plan_dump;
+            //     plan_dump << std::fixed << std::setprecision(6);
+            //     plan_dump
+            //         << "\n========== Plan 完整数据: robot=["
+            //         << _context->requester_id() << "] =========="
+            //         << "\nplan_id=" << plan_id
+            //         << ", cost=" << plan.get_cost()
+            //         << ", waypoint_count=" << waypoints.size()
+            //         << ", route_count=" << itinerary.size()
+            //         << "\nstart: waypoint=" << start.waypoint()
+            //         << ", time_from_start=0.000000"
+            //         << ", orientation=" << start.orientation();
 
-                if (start.location())
-                {
-                    plan_dump
-                        << ", location=("
-                        << start.location()->x() << ", "
-                        << start.location()->y() << ")";
-                }
-                else
-                {
-                    plan_dump << ", location=null";
-                }
+            //     if (start.location())
+            //     {
+            //         plan_dump
+            //             << ", location=("
+            //             << start.location()->x() << ", "
+            //             << start.location()->y() << ")";
+            //     }
+            //     else
+            //     {
+            //         plan_dump << ", location=null";
+            //     }
 
-                if (start.lane())
-                    plan_dump << ", lane=" << *start.lane();
-                else
-                    plan_dump << ", lane=null";
+            //     if (start.lane())
+            //         plan_dump << ", lane=" << *start.lane();
+            //     else
+            //         plan_dump << ", lane=null";
 
-                plan_dump << "\n\n[Plan::Waypoints]";
-                for (std::size_t i = 0; i < waypoints.size(); ++i)
-                {
-                    const auto &wp = waypoints[i];
-                    const auto &p = wp.position();
-                    plan_dump
-                        << "\n  waypoint[" << i << "]:"
-                        << "\n    time_from_start="
-                        << rmf_traffic::time::to_seconds(wp.time() - t0)
-                        << ", position=(x=" << p.x()
-                        << ", y=" << p.y()
-                        << ", yaw=" << p.z() << ")"
-                        << "\n    graph_index=";
+            //     plan_dump << "\n\n[Plan::Waypoints]";
+            //     for (std::size_t i = 0; i < waypoints.size(); ++i)
+            //     {
+            //         const auto &wp = waypoints[i];
+            //         const auto &p = wp.position();
+            //         plan_dump
+            //             << "\n  waypoint[" << i << "]:"
+            //             << "\n    time_from_start="
+            //             << rmf_traffic::time::to_seconds(wp.time() - t0)
+            //             << ", position=(x=" << p.x()
+            //             << ", y=" << p.y()
+            //             << ", yaw=" << p.z() << ")"
+            //             << "\n    graph_index=";
 
-                    if (wp.graph_index())
-                    {
-                        plan_dump
-                            << *wp.graph_index()
-                            << ", graph_name=\""
-                            << graph.get_waypoint(*wp.graph_index()).name_or_index()
-                            << "\"";
-                    }
-                    else
-                    {
-                        plan_dump << "null";
-                    }
+            //         if (wp.graph_index())
+            //         {
+            //             plan_dump
+            //                 << *wp.graph_index()
+            //                 << ", graph_name=\""
+            //                 << graph.get_waypoint(*wp.graph_index()).name_or_index()
+            //                 << "\"";
+            //         }
+            //         else
+            //         {
+            //             plan_dump << "null";
+            //         }
 
-                    plan_dump << "\n    approach_lanes=[";
-                    for (std::size_t j = 0; j < wp.approach_lanes().size(); ++j)
-                    {
-                        if (j > 0)
-                            plan_dump << ", ";
-                        plan_dump << wp.approach_lanes()[j];
-                    }
-                    plan_dump << "]";
+            //         plan_dump << "\n    approach_lanes=[";
+            //         for (std::size_t j = 0; j < wp.approach_lanes().size(); ++j)
+            //         {
+            //             if (j > 0)
+            //                 plan_dump << ", ";
+            //             plan_dump << wp.approach_lanes()[j];
+            //         }
+            //         plan_dump << "]";
 
-                    plan_dump << "\n    arrival_checkpoints=[";
-                    for (std::size_t j = 0; j < wp.arrival_checkpoints().size(); ++j)
-                    {
-                        if (j > 0)
-                            plan_dump << ", ";
-                        const auto &c = wp.arrival_checkpoints()[j];
-                        plan_dump
-                            << "{route_id=" << c.route_id
-                            << ", checkpoint_id=" << c.checkpoint_id << "}";
-                    }
-                    plan_dump << "]";
+            //         plan_dump << "\n    arrival_checkpoints=[";
+            //         for (std::size_t j = 0; j < wp.arrival_checkpoints().size(); ++j)
+            //         {
+            //             if (j > 0)
+            //                 plan_dump << ", ";
+            //             const auto &c = wp.arrival_checkpoints()[j];
+            //             plan_dump
+            //                 << "{route_id=" << c.route_id
+            //                 << ", checkpoint_id=" << c.checkpoint_id << "}";
+            //         }
+            //         plan_dump << "]";
 
-                    plan_dump << "\n    progress_checkpoints=[";
-                    for (std::size_t j = 0; j < wp.progress_checkpoints().size(); ++j)
-                    {
-                        if (j > 0)
-                            plan_dump << ", ";
-                        const auto &progress = wp.progress_checkpoints()[j];
-                        plan_dump
-                            << "{graph_index=" << progress.graph_index
-                            << ", time_from_start="
-                            << rmf_traffic::time::to_seconds(progress.time - t0)
-                            << ", checkpoints=[";
-                        for (std::size_t k = 0; k < progress.checkpoints.size(); ++k)
-                        {
-                            if (k > 0)
-                                plan_dump << ", ";
-                            const auto &c = progress.checkpoints[k];
-                            plan_dump
-                                << "{route_id=" << c.route_id
-                                << ", checkpoint_id=" << c.checkpoint_id << "}";
-                        }
-                        plan_dump << "]}";
-                    }
-                    plan_dump << "]";
+            //         plan_dump << "\n    progress_checkpoints=[";
+            //         for (std::size_t j = 0; j < wp.progress_checkpoints().size(); ++j)
+            //         {
+            //             if (j > 0)
+            //                 plan_dump << ", ";
+            //             const auto &progress = wp.progress_checkpoints()[j];
+            //             plan_dump
+            //                 << "{graph_index=" << progress.graph_index
+            //                 << ", time_from_start="
+            //                 << rmf_traffic::time::to_seconds(progress.time - t0)
+            //                 << ", checkpoints=[";
+            //             for (std::size_t k = 0; k < progress.checkpoints.size(); ++k)
+            //             {
+            //                 if (k > 0)
+            //                     plan_dump << ", ";
+            //                 const auto &c = progress.checkpoints[k];
+            //                 plan_dump
+            //                     << "{route_id=" << c.route_id
+            //                     << ", checkpoint_id=" << c.checkpoint_id << "}";
+            //             }
+            //             plan_dump << "]}";
+            //         }
+            //         plan_dump << "]";
 
-                    plan_dump << "\n    dependencies=[";
-                    for (std::size_t j = 0; j < wp.dependencies().size(); ++j)
-                    {
-                        if (j > 0)
-                            plan_dump << ", ";
-                        const auto &d = wp.dependencies()[j];
-                        plan_dump
-                            << "{participant=" << d.on_participant
-                            << ", plan=" << d.on_plan
-                            << ", route=" << d.on_route
-                            << ", checkpoint=" << d.on_checkpoint << "}";
-                    }
-                    plan_dump << "]"
-                              << "\n    event=" << (wp.event() ? "present" : "null");
-                }
+            //         plan_dump << "\n    dependencies=[";
+            //         for (std::size_t j = 0; j < wp.dependencies().size(); ++j)
+            //         {
+            //             if (j > 0)
+            //                 plan_dump << ", ";
+            //             const auto &d = wp.dependencies()[j];
+            //             plan_dump
+            //                 << "{participant=" << d.on_participant
+            //                 << ", plan=" << d.on_plan
+            //                 << ", route=" << d.on_route
+            //                 << ", checkpoint=" << d.on_checkpoint << "}";
+            //         }
+            //         plan_dump << "]"
+            //                   << "\n    event=" << (wp.event() ? "present" : "null");
+            //     }
 
-                plan_dump << "\n\n[Plan::Itinerary]";
-                for (std::size_t route_index = 0;
-                     route_index < itinerary.size();
-                     ++route_index)
-                {
-                    const auto &route = itinerary[route_index];
-                    const auto &trajectory = route.trajectory();
-                    plan_dump
-                        << "\n  route[" << route_index << "]: map=\""
-                        << route.map() << "\", trajectory_size="
-                        << trajectory.size() << ", checkpoints=[";
+            //     plan_dump << "\n\n[Plan::Itinerary]";
+            //     for (std::size_t route_index = 0;
+            //          route_index < itinerary.size();
+            //          ++route_index)
+            //     {
+            //         const auto &route = itinerary[route_index];
+            //         const auto &trajectory = route.trajectory();
+            //         plan_dump
+            //             << "\n  route[" << route_index << "]: map=\""
+            //             << route.map() << "\", trajectory_size="
+            //             << trajectory.size() << ", checkpoints=[";
 
-                    bool first_checkpoint = true;
-                    for (const auto checkpoint : route.checkpoints())
-                    {
-                        if (!first_checkpoint)
-                            plan_dump << ", ";
-                        first_checkpoint = false;
-                        plan_dump << checkpoint;
-                    }
-                    plan_dump << "]";
+            //         bool first_checkpoint = true;
+            //         for (const auto checkpoint : route.checkpoints())
+            //         {
+            //             if (!first_checkpoint)
+            //                 plan_dump << ", ";
+            //             first_checkpoint = false;
+            //             plan_dump << checkpoint;
+            //         }
+            //         plan_dump << "]";
 
-                    std::size_t trajectory_index = 0;
-                    for (const auto &trajectory_wp : trajectory)
-                    {
-                        const auto p = trajectory_wp.position();
-                        const auto v = trajectory_wp.velocity();
-                        plan_dump
-                            << "\n    vertex[" << trajectory_index++ << "]:"
-                            << " time_from_start="
-                            << rmf_traffic::time::to_seconds(
-                                   trajectory_wp.time() - t0)
-                            << ", position=(x=" << p.x()
-                            << ", y=" << p.y()
-                            << ", yaw=" << p.z() << ")"
-                            << ", velocity=(vx=" << v.x()
-                            << ", vy=" << v.y()
-                            << ", wyaw=" << v.z() << ")";
-                    }
-                }
+            //         std::size_t trajectory_index = 0;
+            //         for (const auto &trajectory_wp : trajectory)
+            //         {
+            //             const auto p = trajectory_wp.position();
+            //             const auto v = trajectory_wp.velocity();
+            //             plan_dump
+            //                 << "\n    vertex[" << trajectory_index++ << "]:"
+            //                 << " time_from_start="
+            //                 << rmf_traffic::time::to_seconds(
+            //                        trajectory_wp.time() - t0)
+            //                 << ", position=(x=" << p.x()
+            //                 << ", y=" << p.y()
+            //                 << ", yaw=" << p.z() << ")"
+            //                 << ", velocity=(vx=" << v.x()
+            //                 << ", vy=" << v.y()
+            //                 << ", wyaw=" << v.z() << ")";
+            //         }
+            //     }
 
-                plan_dump << "\n========== Plan 数据结束 ==========";
-                RCLCPP_INFO(
-                    _context->node()->get_logger(),
-                    "%s",
-                    plan_dump.str().c_str());
-            }
+            //     plan_dump << "\n========== Plan 数据结束 ==========";
+            //     RCLCPP_INFO(
+            //         _context->node()->get_logger(),
+            //         "%s",
+            //         plan_dump.str().c_str());
+            // }
 
             RCLCPP_INFO(
                 _context->node()->get_logger(),
