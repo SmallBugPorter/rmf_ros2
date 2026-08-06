@@ -17,10 +17,57 @@
 
 #include "WaitForTraffic.hpp"
 
+#include <mutex>
+#include <unordered_map>
+
 namespace rmf_fleet_adapter
 {
     namespace events
     {
+
+        namespace
+        {
+            // When participant A replans because a dependency on participant B
+            // was deprecated, A is explicitly handing right-of-way to B. A's new
+            // itinerary will supersede A's current plan, which can deprecate B's
+            // dependency on that plan. Remembering the handoff lets B distinguish
+            // that expected reciprocal deprecation from a real, unaccounted-for
+            // plan change.
+            std::mutex precedence_handoff_mutex;
+            std::unordered_map<
+                rmf_traffic::ParticipantId,
+                std::unordered_map<
+                    rmf_traffic::ParticipantId,
+                    rmf_traffic::PlanId>>
+                precedence_handoffs;
+
+            void remember_precedence_handoff(
+                const rmf_traffic::ParticipantId yielding_participant,
+                const rmf_traffic::ParticipantId priority_participant,
+                const rmf_traffic::PlanId superseded_plan)
+            {
+                const std::lock_guard<std::mutex> lock(precedence_handoff_mutex);
+                precedence_handoffs[yielding_participant][priority_participant] =
+                    superseded_plan;
+            }
+
+            bool matches_precedence_handoff(
+                const rmf_traffic::ParticipantId yielding_participant,
+                const rmf_traffic::ParticipantId priority_participant,
+                const rmf_traffic::PlanId superseded_plan)
+            {
+                const std::lock_guard<std::mutex> lock(precedence_handoff_mutex);
+                const auto yielding_it =
+                    precedence_handoffs.find(yielding_participant);
+                if (yielding_it == precedence_handoffs.end())
+                    return false;
+
+                const auto priority_it =
+                    yielding_it->second.find(priority_participant);
+                return priority_it != yielding_it->second.end() &&
+                       priority_it->second == superseded_plan;
+            }
+        } // namespace
 
         //==============================================================================
         auto WaitForTraffic::Standby::make(
@@ -263,14 +310,16 @@ namespace rmf_fleet_adapter
                 return;
             }
 
-            bool all_dependencies_reached = true;
-            for (const auto &dep : _dependencies)
-            {
-                if (!dep.reached() && !dep.deprecated())
-                    all_dependencies_reached = false;
-            }
+            // 方案 0: deprecated 依赖直接视为满足
+            // bool all_dependencies_reached = true;
+            // for (const auto &dep : _dependencies)
+            // {
+            //     if (!dep.reached() && !dep.deprecated())
+            //         all_dependencies_reached = false;
+            // }
+            // 方案 0 结束
 
-            // 切换任务后依赖切换
+            // 方案 1: deprecated 依赖触发重新规划
             // bool all_dependencies_reached = true;
             // bool any_dependency_deprecated = false;
             // for (const auto &dep : _dependencies)
@@ -295,6 +344,70 @@ namespace rmf_fleet_adapter
             //         _context->requester_id().c_str());
             //     return _replan();
             // }
+            // 方案 1 结束
+
+            // 方案 2: 重新规划时传递既有优先权，阻止 reciprocal replan
+            bool all_dependencies_reached = true;
+            std::unordered_set<rmf_traffic::ParticipantId>
+                deprecated_dependency_participants;
+            const auto self_participant = _context->participant_id();
+
+            for (const auto &dep : _dependencies)
+            {
+                if (dep.reached())
+                    continue;
+
+                if (!dep.deprecated())
+                {
+                    all_dependencies_reached = false;
+                    continue;
+                }
+
+                if (matches_precedence_handoff(
+                        dep.dependency().on_participant,
+                        self_participant,
+                        dep.dependency().on_plan))
+                {
+                    // The other participant replaced this exact plan because it
+                    // was replanning around us. Its replacement itinerary is
+                    // responsible for yielding, so we keep our existing priority
+                    // instead of invalidating our own plan in response.
+                    RCLCPP_INFO(
+                        _context->node()->get_logger(),
+                        "[%s] retaining right-of-way because participant [%lu] "
+                        "superseded yielding plan [%lu]",
+                        _context->requester_id().c_str(),
+                        dep.dependency().on_participant,
+                        dep.dependency().on_plan);
+                    continue;
+                }
+
+                all_dependencies_reached = false;
+                deprecated_dependency_participants.insert(
+                    dep.dependency().on_participant);
+            }
+
+            if (!deprecated_dependency_participants.empty())
+            {
+                for (const auto participant : deprecated_dependency_participants)
+                {
+                    remember_precedence_handoff(
+                        self_participant, participant, _plan_id);
+                }
+
+                _state->update_status(Status::Delayed);
+                _state->update_log().info(
+                    "Replanning because a traffic dependency was superseded before "
+                    "being reached");
+                RCLCPP_INFO(
+                    _context->node()->get_logger(),
+                    "Replanning for [%s] because a traffic dependency was deprecated "
+                    "before being reached; preserving the other participant's "
+                    "right-of-way",
+                    _context->requester_id().c_str());
+                return _replan();
+            }
+            // 方案 2 结束
 
             if (all_dependencies_reached)
             {

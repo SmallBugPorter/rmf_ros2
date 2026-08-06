@@ -47,6 +47,7 @@ public:
   void interrupt();
 
 private:
+  rmf_traffic::schedule::ParticipantId _participant_id;
   std::shared_ptr<jobs::SearchForPath> _search_job;
   rmf_rxcpp::subscription_guard _search_sub;
 };

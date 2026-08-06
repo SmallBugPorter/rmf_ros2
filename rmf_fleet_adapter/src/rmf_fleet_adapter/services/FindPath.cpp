@@ -29,6 +29,7 @@ FindPath::FindPath(
   rmf_traffic::schedule::ParticipantId participant_id,
   const std::shared_ptr<const rmf_traffic::Profile>& profile,
   std::optional<rmf_traffic::Duration> planning_time_limit)
+: _participant_id(participant_id)
 {
   _search_job = std::make_shared<jobs::SearchForPath>(
     std::move(planner),
