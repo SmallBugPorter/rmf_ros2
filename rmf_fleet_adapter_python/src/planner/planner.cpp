@@ -141,6 +141,11 @@ void bind_plan(py::module& m)
     &Plan::Waypoint::graph_index)
   .def_property_readonly("approach_lanes",
     &Plan::Waypoint::approach_lanes)
+  .def_property_readonly("has_dependencies",
+    [](const Plan::Waypoint& self)
+    {
+      return !self.dependencies().empty();
+    })
   .def_property_readonly("itinerary_index",
     &Plan::Waypoint::itinerary_index)
   .def_property_readonly("trajectory_index",
