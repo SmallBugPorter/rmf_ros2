@@ -222,6 +222,12 @@ public:
   void itinerary_clear(const ItineraryClear& clear);
   rclcpp::Subscription<ItineraryClear>::SharedPtr itinerary_clear_sub;
 
+  // Print the complete itinerary currently stored for every schedule
+  // participant. The caller must hold database_mutex.
+  void print_all_itineraries(
+    const char* update_type,
+    rmf_traffic::schedule::ParticipantId updated_participant);
+
   virtual void setup_itinerary_topics();
 
   using InconsistencyMsg = rmf_traffic_msgs::msg::ScheduleInconsistency;

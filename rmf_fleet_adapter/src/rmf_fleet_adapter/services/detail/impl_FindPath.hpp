@@ -38,35 +38,39 @@ void FindPath::operator()(const Subscriber& s)
     {
       const auto result_type =
         result.type == jobs::SearchForPath::Type::compliant ?
-        "compliant" : "greedy";
+        "合规规划" : "贪心规划";
 
       const bool compliant_success = result.compliant_job
         && result.compliant_job->progress().success();
       const auto selected_type = compliant_success ?
-        "compliant" : (result.greedy_job ? "greedy" : "none");
+        "合规规划" : (result.greedy_job ? "贪心规划" : "无");
+
+      const auto bool_to_zh = [](const bool value)
+        {
+          return value ? "是" : "否";
+        };
 
       std::ostringstream status;
-      status << std::boolalpha
-             << "[FindPath] participant=" << participant_id
-             << ", Result::type=" << result_type
-             << ", selected=" << selected_type
-             << ", compliant={available="
-             << static_cast<bool>(result.compliant_job);
+      status << "[路径规划] 参与者=" << participant_id
+             << ", 返回类型=" << result_type
+             << ", 已选择=" << selected_type
+             << ", 合规规划={可用="
+             << bool_to_zh(static_cast<bool>(result.compliant_job));
 
       if (result.compliant_job)
       {
         const auto& progress = result.compliant_job->progress();
-        status << ", success=" << progress.success()
-               << ", saturated=" << progress.saturated()
-               << ", interrupted=" << progress.interrupted()
-               << ", cost_estimate=";
+        status << ", 成功=" << bool_to_zh(progress.success())
+               << ", 搜索饱和=" << bool_to_zh(progress.saturated())
+               << ", 已中断=" << bool_to_zh(progress.interrupted())
+               << ", 成本估算=";
 
         if (const auto cost = progress.cost_estimate())
           status << *cost;
         else
-          status << "null";
+          status << "无";
 
-        status << ", maximum_cost_estimate=";
+        status << ", 最大成本估算=";
         if (const auto maximum =
           progress.options().maximum_cost_estimate())
         {
@@ -74,8 +78,39 @@ void FindPath::operator()(const Subscriber& s)
         }
         else
         {
-          status << "null";
+          status << "无";
         }
+
+        status << ", 阻塞参与者=[";
+        const auto blockers = progress.blockers();
+        const auto& validator = progress.options().validator();
+        const auto* schedule_validator =
+          dynamic_cast<const rmf_traffic::agv::ScheduleRouteValidator*>(
+          validator.get());
+
+        for (std::size_t i = 0; i < blockers.size(); ++i)
+        {
+          if (i > 0)
+            status << ", ";
+
+          const auto blocker_id = blockers[i];
+          status << "{id=" << blocker_id;
+
+          if (schedule_validator)
+          {
+            const auto description = schedule_validator->schedule_viewer()
+              .get_participant(blocker_id);
+            if (description)
+            {
+              status << ", owner=" << description->owner()
+                     << ", name=" << description->name();
+            }
+          }
+
+          status << "}";
+        }
+
+        status << "]";
       }
 
       status << "}";

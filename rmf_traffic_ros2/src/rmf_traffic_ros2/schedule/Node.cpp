@@ -36,6 +36,9 @@
 
 #include <rmf_utils/optional.hpp>
 
+#include <algorithm>
+#include <iomanip>
+#include <sstream>
 #include <unordered_map>
 #include <uuid/uuid.h>
 
@@ -1099,6 +1102,8 @@ void ScheduleNode::itinerary_set(const ItinerarySet& set)
       set.storage_base,
       set.itinerary_version);
 
+    // print_all_itineraries("set", set.participant);
+
     publish_inconsistencies(set.participant);
 
     std::lock_guard<std::mutex> lock2(active_conflicts_mutex);
@@ -1120,6 +1125,8 @@ void ScheduleNode::itinerary_extend(const ItineraryExtend& extend)
       extend.participant,
       rmf_traffic_ros2::convert(extend.routes),
       extend.itinerary_version);
+
+    // print_all_itineraries("extend", extend.participant);
 
     publish_inconsistencies(extend.participant);
 
@@ -1181,6 +1188,8 @@ void ScheduleNode::itinerary_delay(const ItineraryDelay& delay)
       duration,
       delay.itinerary_version);
 
+    // print_all_itineraries("delay", delay.participant);
+
     publish_inconsistencies(delay.participant);
 
     std::lock_guard<std::mutex> lock2(active_conflicts_mutex);
@@ -1223,6 +1232,8 @@ void ScheduleNode::itinerary_clear(const ItineraryClear& clear)
   {
     database->clear(clear.participant, clear.itinerary_version);
 
+    // print_all_itineraries("clear", clear.participant);
+
     publish_inconsistencies(clear.participant);
 
     std::lock_guard<std::mutex> lock2(active_conflicts_mutex);
@@ -1233,6 +1244,95 @@ void ScheduleNode::itinerary_clear(const ItineraryClear& clear)
   {
     RCLCPP_WARN(get_logger(), "Failed to clear itinerary: %s", e.what());
   }
+}
+
+//==============================================================================
+void ScheduleNode::print_all_itineraries(
+  const char* update_type,
+  const rmf_traffic::schedule::ParticipantId updated_participant)
+{
+  // Copy and sort the IDs so repeated dumps have a stable ordering.
+  std::vector<rmf_traffic::schedule::ParticipantId> participant_ids(
+    database->participant_ids().begin(),
+    database->participant_ids().end());
+  std::sort(participant_ids.begin(), participant_ids.end());
+
+  std::stringstream output;
+  output << std::fixed << std::setprecision(6);
+  output
+    << "\n========== Traffic Schedule: all itineraries =========="
+    << "\nupdate_type=" << update_type
+    << ", updated_participant=" << updated_participant
+    << ", participant_count=" << participant_ids.size();
+
+  for (const auto participant_id : participant_ids)
+  {
+    const auto description = database->get_participant(participant_id);
+    const auto itinerary = database->get_itinerary(participant_id);
+    const auto plan_id = database->get_current_plan_id(participant_id);
+
+    output
+      << "\n\nparticipant_id=" << participant_id
+      << ", name=\""
+      << (description ? description->name() : std::string("unknown"))
+      << "\", owner=\""
+      << (description ? description->owner() : std::string("unknown"))
+      << "\", plan_id=";
+
+    if (plan_id)
+      output << *plan_id;
+    else
+      output << "null";
+
+    if (!itinerary)
+    {
+      output << ", itinerary=null";
+      continue;
+    }
+
+    output << ", route_count=" << itinerary->size();
+    for (std::size_t route_index = 0;
+      route_index < itinerary->size();
+      ++route_index)
+    {
+      const auto& route = itinerary->at(route_index);
+      const auto& trajectory = route->trajectory();
+      output
+        << "\n  route[" << route_index << "]: map=\""
+        << route->map() << "\", trajectory_size=" << trajectory.size()
+        << ", checkpoints=[";
+
+      bool first_checkpoint = true;
+      for (const auto checkpoint : route->checkpoints())
+      {
+        if (!first_checkpoint)
+          output << ", ";
+
+        first_checkpoint = false;
+        output << checkpoint;
+      }
+      output << "]";
+
+      std::size_t vertex_index = 0;
+      for (const auto& vertex : trajectory)
+      {
+        const auto position = vertex.position();
+        const auto velocity = vertex.velocity();
+        output
+          << "\n    vertex[" << vertex_index++ << "]: time_s="
+          << rmf_traffic::time::to_seconds(vertex.time().time_since_epoch())
+          << ", position=(x=" << position.x()
+          << ", y=" << position.y()
+          << ", yaw=" << position.z() << ")"
+          << ", velocity=(vx=" << velocity.x()
+          << ", vy=" << velocity.y()
+          << ", wyaw=" << velocity.z() << ")";
+      }
+    }
+  }
+
+  output << "\n========== Traffic Schedule dump end ==========";
+  RCLCPP_INFO(get_logger(), "%s", output.str().c_str());
 }
 
 //==============================================================================
